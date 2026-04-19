@@ -1472,7 +1472,7 @@ function startGame(){
   if(bossState){ scene.remove(bossState.mesh); bossState=null; }
   bossProjectiles.forEach(p=>scene.remove(p.mesh)); bossProjectiles.length=0;
   document.getElementById('boss-hud').classList.remove('active');
-  score=0; speed=18; running=false;
+  score=0; speed=8; running=false;
   scoreEl.textContent='0'; energyEl.style.width='0%';
   // GET READY countdown
   showLevelScreen(0);
