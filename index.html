@@ -15,7 +15,11 @@
   }
   #score { font-size:32px; }
   #best { font-size:14px; opacity:.8; margin-top:4px; }
-  #energy-wrap { width:180px; height:10px; background:rgba(255,255,255,.15); border-radius:6px; overflow:hidden; margin-top:10px; }
+  #lives { font-size:20px; margin-top:5px; letter-spacing:3px; }
+  #energy-wrap { width:180px; height:10px; background:rgba(255,255,255,.15); border-radius:6px; overflow:hidden; margin-top:8px; }
+  #hit-flash { position:fixed; inset:0; pointer-events:none; z-index:40; opacity:0; background:radial-gradient(ellipse at center, rgba(255,0,0,.55) 0%, rgba(255,0,0,.0) 70%); }
+  #hit-flash.flash { animation: hitFlash 0.5s ease-out forwards; }
+  @keyframes hitFlash { 0%{opacity:1} 100%{opacity:0} }
   #energy { height:100%; width:0%; background:linear-gradient(90deg,#4cffea,#ff3bd1); transition:width .12s linear; }
   #center-ui {
     position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -160,6 +164,7 @@
   <div>
     <div id="score">0</div>
     <div id="best">Best: 0</div>
+    <div id="lives">❤️❤️❤️</div>
     <div id="energy-wrap"><div id="energy"></div></div>
   <div id="powerup-hud">
     <div id="pu-shield" class="pu-icon" style="background:rgba(40,120,255,.35)">🛡</div>
@@ -171,6 +176,7 @@
   </div>
 </div>
 
+<div id="hit-flash"></div>
 <div id="touchpad"></div>
 
 <div id="mobile-controls" style="display:none">
@@ -589,7 +595,7 @@ function updateBoss(dt, now){
           player.shield=false; shake=0.5;
           document.getElementById('pu-shield').classList.remove('active');
           spawnPopup('🛡 BLOCKED!','#88ccff');
-        } else { endBoss(false); }
+        } else { triggerHit(); }
         continue;
       }
     }
@@ -998,25 +1004,34 @@ function buildChunk(zStart){
     });
   }
 
-  const slots = 2;
+  // Difficulty: 0 = very easy, 1 = full chaos. First 4 chunks = no obstacles.
+  const diff = Math.max(0, Math.min(1, (chunkIndex - 4) / 22));
+  chunkIndex++;
+
+  // Number of obstacle slots scales with difficulty (0 → 3)
+  const slots = diff < 0.01 ? 0 : (diff < 0.35 ? 1 : (diff < 0.7 ? 2 : 3));
+  // Spacing: more spread out early
+  const zSpread = CHUNK_LEN - 10;
   for (let i=0; i<slots; i++){
-    const z = -CHUNK_LEN/2 + 4 + i*((CHUNK_LEN-8)/Math.max(1,slots-1));
-    const patternRoll = Math.random();
+    const z = -CHUNK_LEN/2 + 5 + (slots===1 ? zSpread/2 : i*(zSpread/Math.max(1,slots-1)));
     const occupied = [false,false,false];
-    const numObstacles = patternRoll < 0.55 ? 0 : (patternRoll < 0.9 ? 1 : 2);
+    // Max 1 obstacle early, up to 2 at high diff — always keep ≥1 lane free
+    const maxObs = diff < 0.5 ? 1 : 2;
+    const spawnChance = 0.4 + diff*0.45; // low diff = fewer obstacles
+    const numObstacles = Math.random() > spawnChance ? 0 : (Math.random() < 0.3 && maxObs>1 ? 2 : 1);
     for (let k=0; k<numObstacles; k++){
-      let lane; let tries = 0;
-      do { lane = (Math.random()*3)|0; tries++; } while (occupied[lane] && tries<6);
+      let lane, tries=0;
+      do { lane=(Math.random()*3)|0; tries++; } while (occupied[lane] && tries<8);
       if (occupied[lane]) continue;
-      if (occupied.filter(Boolean).length >= 2) break;
+      // At low diff, avoid hard obstacle types
       occupied[lane] = true;
-      spawnObstacle(group, LANE_X[lane], z);
+      spawnObstacle(group, LANE_X[lane], z, diff);
     }
     occupied.forEach((o, lane)=>{
-      if (!o && Math.random() < 0.55) spawnCoinRow(group, LANE_X[lane], z, 0);
+      if (!o && Math.random() < 0.5+diff*0.2) spawnCoinRow(group, LANE_X[lane], z, 0);
     });
-    // Rare power-up spawn (only one per chunk max)
-    if (i === 0 && Math.random() < 0.18){
+    // Power-up spawn
+    if (i === 0 && Math.random() < 0.15){
       const puLane = (Math.random()*3)|0;
       const pu = Math.random() < 0.5 ? makeShieldPickup() : makeMagnetPickup();
       pu.position.set(LANE_X[puLane], 1.1, z);
@@ -1028,8 +1043,11 @@ function buildChunk(zStart){
   return group;
 }
 
-function spawnObstacle(group, x, z){
-  const roll = Math.random();
+function spawnObstacle(group, x, z, diff=1){
+  let roll = Math.random();
+  // Early game: no trains/overhead/helis — only tanks + barriers
+  if (diff < 0.3) roll = 0.33 + roll*0.45; // clamp to tank/barrier range
+  else if (diff < 0.6) roll = Math.min(roll, 0.9); // no helis yet
   let mesh, type;
   if (roll < 0.33){
     type = 'train';
@@ -1316,14 +1334,30 @@ function disposeGroup(g){
 }
 
 // ---------- Player state ----------
-const player = { lane:1, x:0, y:0, vy:0, rolling:false, rollT:0, dead:false, energy:0, breathing:false, breathT:0, runT:0, shield:false, magnetT:0, squashT:0 };
+const player = { lane:1, x:0, y:0, vy:0, rolling:false, rollT:0, dead:false, energy:0, breathing:false, breathT:0, runT:0, shield:false, magnetT:0, squashT:0, lives:3, invincible:0 };
+const livesEl = document.getElementById('lives');
+const hitFlashEl = document.getElementById('hit-flash');
+function updateLivesHUD(){ livesEl.textContent = '❤️'.repeat(Math.max(0,player.lives)); }
+function triggerHit(){
+  if (player.invincible>0 || player.dead) return false;
+  if (player.shield){ player.shield=false; shake=0.5; document.getElementById('pu-shield').classList.remove('active'); spawnPopup('🛡 BLOCKED!','#88ccff'); return false; }
+  player.lives--;
+  updateLivesHUD();
+  shake=0.9;
+  hitFlashEl.classList.remove('flash'); void hitFlashEl.offsetWidth; hitFlashEl.classList.add('flash');
+  if (player.lives<=0){ gameOver(); return true; }
+  player.invincible=2.2;
+  spawnPopup('❤️ '+ player.lives+' LEFT','#ff4444');
+  return false;
+}
 const GRAVITY = -40;
 const JUMP_V = 14;
 const ROLL_DUR = 0.65;
 
-let speed = 18;
+let speed = 8;
 const SPEED_MAX = 50;
-const SPEED_RAMP = 0.4;
+const SPEED_RAMP = 0.18;
+let chunkIndex = 0; // tracks total chunks built, used for difficulty ramp
 let score = 0;
 let best = Number(localStorage.getItem('godzilla_best') || 0);
 let running = false;
@@ -1428,7 +1462,9 @@ function startGame(){
     scene.add(c); chunks.push(c);
   }
   farZ = -CHUNK_LEN*(CHUNK_COUNT-1);
-  Object.assign(player,{lane:1,x:0,y:0,vy:0,rolling:false,rollT:0,dead:false,energy:0,breathing:false,breathT:0,runT:0,shield:false,magnetT:0,squashT:0});
+  chunkIndex=0;
+  Object.assign(player,{lane:1,x:0,y:0,vy:0,rolling:false,rollT:0,dead:false,energy:0,breathing:false,breathT:0,runT:0,shield:false,magnetT:0,squashT:0,lives:3,invincible:0});
+  updateLivesHUD();
   shieldBubble.visible=false;
   document.getElementById('pu-shield').classList.remove('active');
   document.getElementById('pu-magnet').classList.remove('active');
@@ -1519,6 +1555,11 @@ function tick(now){
     if (player.y<0){ player.y=0; if (wasAir && player.vy < -4){ playLand(); player.squashT=0.18; } player.vy=0; }
 
     if (player.rolling){ player.rollT-=dt; if (player.rollT<=0) player.rolling=false; }
+    if (player.invincible>0){
+      player.invincible-=dt;
+      godzilla.root.visible = Math.floor(player.invincible*10)%2===0; // blink
+      if (player.invincible<=0) godzilla.root.visible=true;
+    }
 
     // Apply Godzilla transform
     godzilla.root.position.set(player.x, player.y, 0);
@@ -1620,7 +1661,7 @@ function tick(now){
       if (player.breathing && worldZ<0 && worldZ>-14 && Math.abs(o.mesh.position.x-player.x)<3.2){
         o.chunk.remove(o.mesh); obstacles.splice(i,1); score+=40; spawnPopup('+40 DESTROYED!','#ff6622'); continue;
       }
-      if (Math.abs(worldZ)<1.2){
+      if (Math.abs(worldZ)<1.2 && player.invincible<=0){
         const dx=Math.abs(o.mesh.position.x-player.x);
         if ((o.type==='overhead' ? dx<1.6 : dx<1.3)){
           let hit = false;
@@ -1635,14 +1676,8 @@ function tick(now){
             if (player.y<1.4) hit=true;
           }
           if (hit){
-            if (player.shield){
-              player.shield=false; shake=0.5;
-              document.getElementById('pu-shield').classList.remove('active');
-              spawnPopup('🛡 BLOCKED!','#88ccff');
-              o.chunk.remove(o.mesh); obstacles.splice(i,1);
-            } else {
-              gameOver();
-            }
+            o.chunk.remove(o.mesh); obstacles.splice(i,1);
+            triggerHit();
           }
         }
       }
