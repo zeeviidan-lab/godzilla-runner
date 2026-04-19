@@ -609,19 +609,6 @@ function updateBoss(dt, now){
   }
 }
 
-// Override tryBreath during boss fight — always fires, cooldown managed by boss
-const _origTryBreath = tryBreath;
-function tryBreath(){
-  if(bossState && !bossState.dead){
-    // During boss fight: fire breath with boss-specific cooldown
-    if(bossState.breathCooldown<=0){
-      player.breathing=true; player.breathT=0.6; player.energy=0; shake=0.3;
-      playBreath();
-    }
-    return;
-  }
-  _origTryBreath();
-}
 
 // Moon
 {
@@ -1400,7 +1387,15 @@ function tryRoll(){
   if (player.y>0.1) player.vy = Math.min(player.vy,-6);
 }
 function tryBreath(){
-  if (!player.dead && player.energy>=100 && !player.breathing){
+  if (player.dead) return;
+  if (bossState && !bossState.dead){
+    if (bossState.breathCooldown<=0){
+      player.breathing=true; player.breathT=0.6; player.energy=0; shake=0.3;
+      playBreath();
+    }
+    return;
+  }
+  if (player.energy>=100 && !player.breathing){
     player.breathing=true; player.breathT=2.2; player.energy=0; shake=0.8;
     playBreath();
   }
