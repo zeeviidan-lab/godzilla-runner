@@ -1045,11 +1045,12 @@ function buildChunk(zStart){
 
 function spawnObstacle(group, x, z, diff=1){
   let roll = Math.random();
-  // Early game: no trains/overhead/helis — only tanks + barriers
-  if (diff < 0.3) roll = 0.33 + roll*0.45; // clamp to tank/barrier range
-  else if (diff < 0.6) roll = Math.min(roll, 0.9); // no helis yet
+  // Easy: tank/barrier only. Medium: no bridge_gap/helis. Hard: all.
+  if (diff < 0.3) roll = 0.28 + roll*0.40;
+  else if (diff < 0.6) roll = Math.min(roll, 0.88);
+  else if (diff < 0.8) roll = Math.min(roll, 0.94);
   let mesh, type;
-  if (roll < 0.33){
+  if (roll < 0.28){
     type = 'train';
     mesh = new THREE.Group();
     const trainMat  = new THREE.MeshStandardMaterial({ color:0xd0d8e8, roughness:0.55, metalness:0.5 });
@@ -1108,7 +1109,7 @@ function spawnObstacle(group, x, z, diff=1){
     });
     mesh.userData.height = 1.65;
     mesh.userData.jumpOver = true;
-  } else if (roll < 0.66){
+  } else if (roll < 0.56){
     type = 'tank';
     mesh = new THREE.Group();
     const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.6, 2.4), new THREE.MeshStandardMaterial({ color:0x4a5038, roughness:0.9 }));
@@ -1122,12 +1123,12 @@ function spawnObstacle(group, x, z, diff=1){
       t.position.set(sx, 0.25, 0); mesh.add(t);
     });
     mesh.userData.height = 1.3;
-  } else if (roll < 0.78){
+  } else if (roll < 0.67){
     type = 'barrier';
     mesh = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.9, 0.9), new THREE.MeshStandardMaterial({ color:0xb5b0a0, roughness:0.95 }));
     mesh.position.y = 0.45; mesh.castShadow = true;
     mesh.userData.height = 0.9;
-  } else if (roll < 0.90){
+  } else if (roll < 0.77){
     type = 'overhead';
     mesh = new THREE.Group();
     const gantrySteelMat = new THREE.MeshStandardMaterial({ color:0x666e7a, roughness:0.5, metalness:0.8 });
@@ -1171,6 +1172,73 @@ function spawnObstacle(group, x, z, diff=1){
 
     mesh.userData.rollUnder = true;
     mesh.userData.hitboxY = [1.4, 2.3];
+  } else if (roll < 0.88){
+    // ---- BRIDGE OVERPASS (duck/roll under) ----
+    type = 'bridge_over';
+    mesh = new THREE.Group();
+    const concMat  = new THREE.MeshStandardMaterial({ color:0xaaa89a, roughness:0.95 });
+    const darkConc = new THREE.MeshStandardMaterial({ color:0x7a7870, roughness:0.95 });
+    // Thick pier columns on each side
+    [-3.9, 3.9].forEach(px=>{
+      const pier = new THREE.Mesh(new THREE.BoxGeometry(0.9, 4.0, 0.8), concMat);
+      pier.position.set(px, 2.0, 0); pier.castShadow=true; mesh.add(pier);
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.25, 1.1), darkConc);
+      foot.position.set(px, 0.12, 0); mesh.add(foot);
+      // Corbel bracket at top
+      const corbel = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.3, 0.8), darkConc);
+      corbel.position.set(px, 3.8, 0); mesh.add(corbel);
+    });
+    // Main deck slab — bottom face sits at y=1.7 so standing Godzilla (1.9) hits it
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(8.8, 0.6, 2.6), concMat);
+    deck.position.set(0, 2.0, 0); mesh.add(deck); // bottom = 2.0-0.3 = 1.70
+    // Soffit box beams (underside detail)
+    [-2.8, 0, 2.8].forEach(bx=>{
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.32, 2.6), darkConc);
+      beam.position.set(bx, 1.86, 0); mesh.add(beam);
+    });
+    // Parapet walls on top of deck
+    [-3.9, 3.9].forEach(px=>{
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.55, 2.6), darkConc);
+      wall.position.set(px, 2.57, 0); mesh.add(wall);
+    });
+    // Expansion joint groove
+    const joint = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.04, 0.1), darkConc);
+    joint.position.set(0, 0.02, 0.5); mesh.add(joint);
+    mesh.userData.rollUnder = true;
+    mesh.userData.hitboxY = [1.6, 2.7]; // bottom of deck ~1.7
+  } else if (roll < 0.94){
+    // ---- BRIDGE GAP (jump over) ----
+    type = 'bridge_gap';
+    mesh = new THREE.Group();
+    const roadMat = new THREE.MeshStandardMaterial({ color:0x3a3a3a, roughness:0.95 });
+    const concMat2 = new THREE.MeshStandardMaterial({ color:0x888880, roughness:0.9 });
+    const abyssMat = new THREE.MeshStandardMaterial({ color:0x080812 });
+    // Broken road stumps on both sides of gap
+    [-1, 1].forEach(side=>{
+      const stump = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.28, 1.8), roadMat);
+      stump.position.set(side*3.2, -0.06, 0); mesh.add(stump);
+      // Cracked edge — tilted slightly
+      const crack = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.55, 1.8), concMat2);
+      crack.position.set(side*2.0, -0.05, 0); crack.rotation.z = side*0.18; mesh.add(crack);
+      // Bridge girder visible on outer edge
+      const girder = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.55, 1.8), concMat2);
+      girder.position.set(side*4.1, 0.2, 0); mesh.add(girder);
+      // Railing posts on outer edge
+      for (let rz=-0.7; rz<=0.7; rz+=0.7){
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.75, 0.08), concMat2);
+        post.position.set(side*4.2, 0.65, rz); mesh.add(post);
+      }
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 1.8), concMat2);
+      rail.position.set(side*4.2, 1.0, 0); mesh.add(rail);
+    });
+    // Dark abyss floor in the gap
+    const abyss = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.08, 1.8), abyssMat);
+    abyss.position.set(0, -2.5, 0); mesh.add(abyss);
+    // Subtle glow at gap edge (danger hint)
+    const glow = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.06, 1.8), new THREE.MeshStandardMaterial({ color:0x111111, emissive:0xff2200, emissiveIntensity:0.25 }));
+    glow.position.set(0, -0.02, 0); mesh.add(glow);
+    mesh.userData.jumpOver = true;
+    mesh.userData.allLanes = true; // gap spans full road width
   } else {
     type = 'heli';
     mesh = new THREE.Group();
@@ -1240,7 +1308,7 @@ function spawnObstacle(group, x, z, diff=1){
 
     mesh.userData.hitboxY = [2.6, 3.9];
   }
-  mesh.position.x = x;
+  mesh.position.x = mesh.userData.allLanes ? 0 : x;
   mesh.position.z = z;
   group.add(mesh);
   obstacles.push({ mesh, type, chunk:group });
@@ -1662,13 +1730,19 @@ function tick(now){
       if (player.breathing && worldZ<0 && worldZ>-14 && Math.abs(o.mesh.position.x-player.x)<3.2){
         o.chunk.remove(o.mesh); obstacles.splice(i,1); score+=40; spawnPopup('+40 DESTROYED!','#ff6622'); continue;
       }
-      if (Math.abs(worldZ)<1.2 && player.invincible<=0){
+      if (Math.abs(worldZ)<1.5 && player.invincible<=0){
         const dx=Math.abs(o.mesh.position.x-player.x);
-        if ((o.type==='overhead' ? dx<1.6 : dx<1.3)){
+        const hitW = o.mesh.userData.allLanes ? 5.0 : (o.type==='overhead'||o.type==='bridge_over' ? 1.8 : 1.3);
+        if (dx < hitW){
           let hit = false;
           if (o.type==='overhead'||o.type==='heli'){
             const playerTop=player.y+(player.rolling?0.9:1.9);
             if (playerTop>1.4) hit=true;
+          } else if (o.type==='bridge_over'){
+            const playerTop=player.y+(player.rolling?0.9:1.9);
+            if (playerTop>1.65) hit=true;
+          } else if (o.type==='bridge_gap'){
+            if (player.y<0.4) hit=true;
           } else if (o.type==='train'){
             if (player.y<0.85) hit=true;
           } else if (o.type==='barrier'){
