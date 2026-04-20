@@ -37,8 +37,9 @@
     cursor:pointer; box-shadow:0 8px 30px rgba(76,255,234,.35);
   }
   #center-ui button:active { transform: translateY(1px); }
-  .controls { opacity:.75; font-size:13px; margin-top:14px; transition: opacity 1s ease; }
-  .controls.fade { opacity:0; pointer-events:none; }
+  #hint-overlay { position:fixed; bottom:180px; left:0; right:0; text-align:center; color:rgba(255,255,255,0.75); font-size:13px; pointer-events:none; z-index:20; display:none; transition:opacity 1.2s ease; }
+  #hint-overlay.show { display:block; opacity:1; }
+  #hint-overlay.fade { opacity:0; }
   .hidden { display:none !important; }
   #touchpad { position:fixed; top:0; left:0; right:0; bottom:160px; z-index:5; }
   #mobile-controls { display:none; }
@@ -210,11 +211,8 @@
   <h1>GODZILLA RAMPAGE</h1>
   <p>Tear through the city. Dodge tanks, helicopters, and skyscrapers. Collect atomic energy — unleash the breath when fully charged.</p>
   <button id="play-btn">START</button>
-  <div class="controls">
-    Desktop: ← → or A D to change lane · ↑ / W / Space to jump · ↓ / S to roll · SHIFT to breathe<br/>
-    Mobile: swipe to move · tap to jump · two-finger tap to breathe
-  </div>
 </div>
+<div id="hint-overlay">← → lanes &nbsp;·&nbsp; ↑ jump &nbsp;·&nbsp; ↓ roll &nbsp;·&nbsp; SHIFT breath</div>
 
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.min.js';
@@ -1615,6 +1613,7 @@ function setMobileControls(visible){
 }
 
 function startGame(){
+  getACtx(); // unlock AudioContext immediately while inside user gesture
   ui.classList.add('hidden');
   setMobileControls(true);
   currentLevel=0; levelTransitioning=false;
@@ -1653,7 +1652,9 @@ function startGame(){
       rs.classList.remove('show'); rs.classList.add('hide');
       setTimeout(()=>rs.classList.remove('hide'),500);
       running=true; playRoar(); startMusic();
-      setTimeout(()=>{ document.querySelector('.controls')?.classList.add('fade'); }, 4000);
+      const hint = document.getElementById('hint-overlay');
+      hint.classList.add('show');
+      setTimeout(()=>{ hint.classList.add('fade'); setTimeout(()=>hint.classList.remove('show','fade'),1300); }, 4000);
     }
   },1000);
 }
