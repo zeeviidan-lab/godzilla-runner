@@ -37,7 +37,8 @@
     cursor:pointer; box-shadow:0 8px 30px rgba(76,255,234,.35);
   }
   #center-ui button:active { transform: translateY(1px); }
-  .controls { opacity:.75; font-size:13px; margin-top:14px; }
+  .controls { opacity:.75; font-size:13px; margin-top:14px; transition: opacity 1s ease; }
+  .controls.fade { opacity:0; pointer-events:none; }
   .hidden { display:none !important; }
   #touchpad { position:fixed; top:0; left:0; right:0; bottom:160px; z-index:5; }
   #mobile-controls { display:none; }
@@ -1009,7 +1010,7 @@ function buildChunk(zStart){
   chunkIndex++;
 
   // Number of obstacle slots scales with difficulty (0 → 3)
-  const slots = diff < 0.01 ? 0 : (diff < 0.35 ? 1 : (diff < 0.7 ? 2 : 3));
+  const slots = diff < 0.01 ? 0 : (diff < 0.45 ? 1 : (diff < 0.8 ? 2 : 3));
   // Spacing: more spread out early
   const zSpread = CHUNK_LEN - 10;
   for (let i=0; i<slots; i++){
@@ -1017,7 +1018,7 @@ function buildChunk(zStart){
     const occupied = [false,false,false];
     // Max 1 obstacle early, up to 2 at high diff — always keep ≥1 lane free
     const maxObs = diff < 0.5 ? 1 : 2;
-    const spawnChance = 0.4 + diff*0.45; // low diff = fewer obstacles
+    const spawnChance = 0.3 + diff*0.35; // low diff = fewer obstacles
     const numObstacles = Math.random() > spawnChance ? 0 : (Math.random() < 0.3 && maxObs>1 ? 2 : 1);
     for (let k=0; k<numObstacles; k++){
       let lane, tries=0;
@@ -1558,6 +1559,7 @@ function startGame(){
       rs.classList.remove('show'); rs.classList.add('hide');
       setTimeout(()=>rs.classList.remove('hide'),500);
       running=true; playRoar(); startMusic();
+      setTimeout(()=>{ document.querySelector('.controls')?.classList.add('fade'); }, 4000);
     }
   },1000);
 }
