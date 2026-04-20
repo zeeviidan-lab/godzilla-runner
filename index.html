@@ -1423,9 +1423,9 @@ const GRAVITY = -40;
 const JUMP_V = 14;
 const ROLL_DUR = 0.65;
 
-let speed = 8;
-const SPEED_MAX = 50;
-const SPEED_RAMP = 0.18;
+let speed = 14;
+const SPEED_MAX = 55;
+const SPEED_RAMP = 0.28;
 
 let score = 0;
 let best = Number(localStorage.getItem('godzilla_best') || 0);
@@ -1541,7 +1541,7 @@ function startGame(){
   if(bossState){ scene.remove(bossState.mesh); bossState=null; }
   bossProjectiles.forEach(p=>scene.remove(p.mesh)); bossProjectiles.length=0;
   document.getElementById('boss-hud').classList.remove('active');
-  score=0; speed=8; running=false;
+  score=0; speed=14; running=false;
   scoreEl.textContent='0'; energyEl.style.width='0%';
   // GET READY countdown
   showLevelScreen(0);
