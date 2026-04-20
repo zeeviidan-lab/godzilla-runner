@@ -259,7 +259,7 @@ neon2.position.set(-8, 5, -18);
 scene.add(neon2);
 
 // ---------- Constants ----------
-const LANE_X = [-2.6, 0, 2.6];
+const LANE_X = [-3.2, 0, 3.2];
 const GROUND_WIDTH = 14;
 const CHUNK_LEN = 20;
 const CHUNK_COUNT = 7;
@@ -1600,18 +1600,11 @@ function tick(now){
     // Level up check (skip during boss fight)
     const nextLv = currentLevel+1;
     if (!levelTransitioning && !bossState && nextLv < LEVELS.length && score >= LEVELS[nextLv].scoreGoal){
-      // Check if a boss fight should trigger before advancing
-      const bossIdx = BOSS_DEFS.findIndex(b=>b.triggerAfterLevel===currentLevel);
-      if(bossIdx>=0){
-        levelTransitioning=true;
-        triggerBoss(bossIdx);
-      } else {
-        currentLevel = nextLv; levelTransitioning = true;
-        showLevelScreen(currentLevel);
-        applyLevelTheme(currentLevel, false);
-        spawnPopup('LEVEL '+(currentLevel+1)+'!','#ffffff');
-        setTimeout(()=>{ levelTransitioning=false; }, 3000);
-      }
+      currentLevel = nextLv; levelTransitioning = true;
+      showLevelScreen(currentLevel);
+      applyLevelTheme(currentLevel, false);
+      spawnPopup('LEVEL '+(currentLevel+1)+'!','#ffffff');
+      setTimeout(()=>{ levelTransitioning=false; }, 3000);
     }
     player.runT += dt*speed*0.35;
 
