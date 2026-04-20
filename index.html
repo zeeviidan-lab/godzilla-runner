@@ -1052,83 +1052,171 @@ function spawnObstacle(group, x, z, diff=1){
   else if (diff < 0.8) roll = Math.min(roll, 0.94);
   let mesh, type;
   if (roll < 0.28){
+    // ---- TRAIN ----
     type = 'train';
     mesh = new THREE.Group();
-    const trainMat  = new THREE.MeshStandardMaterial({ color:0xd0d8e8, roughness:0.55, metalness:0.5 });
-    const stripeMat2 = new THREE.MeshStandardMaterial({ color:0x1144cc, roughness:0.6 });
-    const windowMat = new THREE.MeshStandardMaterial({ color:0xfff8c0, emissive:0xffe060, emissiveIntensity:0.8, roughness:0.1 });
-    const wheelMat  = new THREE.MeshStandardMaterial({ color:0x333, roughness:0.9, metalness:0.7 });
+    const TRAIN_COLORS = [
+      [0xe8eaf0, 0x1155dd], // silver / blue
+      [0xf0e8d8, 0xcc3311], // cream / red
+      [0xd8f0e0, 0x115522], // white / green
+    ];
+    const [bodyCol, stripeCol] = TRAIN_COLORS[(Math.random()*3)|0];
+    const trainMat  = new THREE.MeshStandardMaterial({ color:bodyCol, roughness:0.45, metalness:0.55 });
+    const stripeMat2= new THREE.MeshStandardMaterial({ color:stripeCol, roughness:0.5, emissive:stripeCol, emissiveIntensity:0.12 });
+    const windowMat = new THREE.MeshStandardMaterial({ color:0xd4eeff, emissive:0x88ccff, emissiveIntensity:0.9, roughness:0.05 });
+    const wheelMat  = new THREE.MeshStandardMaterial({ color:0x222, roughness:0.8, metalness:0.8 });
+    const rimMat    = new THREE.MeshStandardMaterial({ color:0xaaaaaa, roughness:0.4, metalness:0.9 });
+    const headlightMat = new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xffffaa, emissiveIntensity:2.0 });
 
-    // Rails (run along Z axis of the chunk)
-    [-0.75, 0.75].forEach(rx=>{
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, CHUNK_LEN), new THREE.MeshStandardMaterial({ color:0x888, metalness:0.9, roughness:0.4 }));
-      rail.position.set(rx, 0.03, 0);
-      group.add(rail); // attach to chunk, not mesh
+    // Rails
+    [-0.75,0.75].forEach(rx=>{
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.07,CHUNK_LEN), new THREE.MeshStandardMaterial({color:0x999,metalness:0.9,roughness:0.3}));
+      rail.position.set(rx,0.035,0); group.add(rail);
     });
-    // Ties / sleepers
     for (let ti=-CHUNK_LEN/2; ti<=CHUNK_LEN/2; ti+=1.2){
-      const tie = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.06, 0.18), new THREE.MeshStandardMaterial({ color:0x5a3a1a, roughness:1.0 }));
-      tie.position.set(0, 0.0, ti);
-      group.add(tie);
+      const tie = new THREE.Mesh(new THREE.BoxGeometry(2.1,0.07,0.2), new THREE.MeshStandardMaterial({color:0x4a3010,roughness:1.0}));
+      tie.position.set(0,0,ti); group.add(tie);
     }
 
-    // Car body
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.15, 3.6), trainMat);
-    body.position.y = 0.9; body.castShadow = true; mesh.add(body);
-    // Blue stripe
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.28, 3.62), stripeMat2);
-    stripe.position.y = 1.05; mesh.add(stripe);
-    // Roof (slightly rounded via scaled cylinder)
-    const roof = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.78, 3.6, 20), trainMat);
-    roof.rotation.z = Math.PI/2; roof.scale.y = 0.28;
-    roof.position.set(0, 1.55, 0); mesh.add(roof);
-    // Windows (front and back faces)
-    [[0,1.0, 1.82],[0,1.0,-1.82]].forEach(([wx,wy,wz])=>{
-      [-0.52, 0.52].forEach(offset=>{
-        const win = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.38, 0.05), windowMat);
-        win.position.set(wx+offset, wy, wz); mesh.add(win);
+    // Underframe / bogies
+    [-1.3,1.3].forEach(bz=>{
+      const bogie = new THREE.Mesh(new THREE.BoxGeometry(1.75,0.22,1.0), new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:0.9,metalness:0.4}));
+      bogie.position.set(0,0.14,bz); mesh.add(bogie);
+      [-0.65,0.65].forEach(wx=>{
+        const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1.95,8), rimMat);
+        axle.rotation.z=Math.PI/2; axle.position.set(0,0.14,bz); mesh.add(axle);
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.24,0.14,14), wheelMat);
+        wheel.rotation.z=Math.PI/2; wheel.position.set(wx,0.24,bz); mesh.add(wheel);
+        const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.27,0.27,0.06,14), wheelMat);
+        flange.rotation.z=Math.PI/2; flange.position.set(wx,0.24,bz); mesh.add(flange);
       });
     });
-    // Side windows
-    [-1, 1].forEach(side=>{
-      for (let wi=-1; wi<=1; wi++){
-        const win = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.38, 0.55), windowMat);
-        win.position.set(side*0.96, 1.0, wi*1.1); mesh.add(win);
+
+    // Main body — tapered ends (approximate with scaled geometry)
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.92,1.1,3.8), trainMat);
+    body.position.y=0.9; body.castShadow=true; mesh.add(body);
+    // Colour stripe band
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.94,0.3,3.82), stripeMat2);
+    stripe.position.y=1.08; mesh.add(stripe);
+    // Skirt / lower panel
+    const skirt = new THREE.Mesh(new THREE.BoxGeometry(1.96,0.24,3.82), new THREE.MeshStandardMaterial({color:0x111111,roughness:0.9,metalness:0.3}));
+    skirt.position.y=0.37; mesh.add(skirt);
+    // Roof (slightly curved via scaled cylinder)
+    const roof = new THREE.Mesh(new THREE.CylinderGeometry(0.82,0.82,3.8,18), trainMat);
+    roof.rotation.z=Math.PI/2; roof.scale.y=0.27; roof.position.set(0,1.55,0); mesh.add(roof);
+    // Roof equipment (AC units, conduit)
+    [[-0.3,1.72,-0.8],[0.3,1.72,0.5]].forEach(([x,y,z])=>{
+      const eq=new THREE.Mesh(new THREE.BoxGeometry(0.45,0.2,0.7), new THREE.MeshStandardMaterial({color:0x888888,roughness:0.8}));
+      eq.position.set(x,y,z); mesh.add(eq);
+    });
+
+    // Front face detail
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(1.94,1.1,0.22), stripeMat2);
+    nose.position.set(0,0.9,1.91); mesh.add(nose);
+    // Headlights
+    [-0.55,0.55].forEach(hx=>{
+      const hl=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.14,0.06), headlightMat);
+      hl.position.set(hx,0.75,1.95); mesh.add(hl);
+    });
+    // Destination sign (emissive)
+    const dest=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.22,0.05), new THREE.MeshStandardMaterial({color:0xffee44,emissive:0xffcc00,emissiveIntensity:1.5,roughness:0.1}));
+    dest.position.set(0,1.22,1.95); mesh.add(dest);
+
+    // Side windows with frames
+    [-1,1].forEach(side=>{
+      for (let wi=-1.1; wi<=1.1; wi+=0.75){
+        const frame=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.46,0.6), new THREE.MeshStandardMaterial({color:0x444444,roughness:0.7}));
+        frame.position.set(side*0.97,1.0,wi); mesh.add(frame);
+        const glass=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.34,0.48), windowMat);
+        glass.position.set(side*0.99,1.0,wi); mesh.add(glass);
       }
     });
-    // Wheels
-    [-1.4, 1.4].forEach(wz=>{
-      [-0.72, 0.72].forEach(wx=>{
-        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.12, 14), wheelMat);
-        wheel.rotation.z = Math.PI/2; wheel.position.set(wx, 0.22, wz); mesh.add(wheel);
-      });
+    // Couplers
+    [2.0,-2.0].forEach(wz=>{
+      const c=new THREE.Mesh(new THREE.BoxGeometry(0.35,0.22,0.22), wheelMat);
+      c.position.set(0,0.42,wz); mesh.add(c);
     });
-    // Coupler nubs
-    [1.85, -1.85].forEach(wz=>{
-      const coupler = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.18), wheelMat);
-      coupler.position.set(0, 0.45, wz); mesh.add(coupler);
-    });
-    mesh.userData.height = 1.65;
+    mesh.userData.height = 1.68;
     mesh.userData.jumpOver = true;
   } else if (roll < 0.56){
+    // ---- TANK ----
     type = 'tank';
     mesh = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.6, 2.4), new THREE.MeshStandardMaterial({ color:0x4a5038, roughness:0.9 }));
-    body.position.y = 0.55; body.castShadow = true; mesh.add(body);
-    const turret = new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.55,0.4,16), new THREE.MeshStandardMaterial({ color:0x5a6142, roughness:0.9 }));
-    turret.position.y = 1.05; mesh.add(turret);
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,1.6,10), new THREE.MeshStandardMaterial({ color:0x2f3325 }));
-    barrel.rotation.x = Math.PI/2; barrel.position.set(0,1.05,0.9); mesh.add(barrel);
-    [-0.8,0.8].forEach(sx=>{
-      const t = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.45, 2.6), new THREE.MeshStandardMaterial({ color:0x1b1d15 }));
-      t.position.set(sx, 0.25, 0); mesh.add(t);
+    const hullMat   = new THREE.MeshStandardMaterial({ color:0x3e4c28, roughness:0.85, metalness:0.15 });
+    const trackMat  = new THREE.MeshStandardMaterial({ color:0x18190f, roughness:0.9,  metalness:0.25 });
+    const steelMat  = new THREE.MeshStandardMaterial({ color:0x2e3420, roughness:0.6,  metalness:0.5  });
+    const darkMat   = new THREE.MeshStandardMaterial({ color:0x1a1c10, roughness:0.8,  metalness:0.3  });
+    // Tracks — wide rubber blocks with road wheels
+    [-1.02, 1.02].forEach(sx=>{
+      const track = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 2.95), trackMat);
+      track.position.set(sx, 0.29, 0); track.castShadow=true; mesh.add(track);
+      [-1.1,-0.45,0.2,0.85].forEach(wz=>{
+        const w = new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.19,0.13,10), steelMat);
+        w.rotation.z=Math.PI/2; w.position.set(sx*1.15, 0.22, wz); mesh.add(w);
+      });
     });
-    mesh.userData.height = 1.3;
+    // Lower hull body
+    const lhull = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.4, 2.75), hullMat);
+    lhull.position.set(0,0.34,0); lhull.castShadow=true; mesh.add(lhull);
+    // Sloped glacis plate (front armour)
+    const glacis = new THREE.Mesh(new THREE.BoxGeometry(1.7,0.48,0.65), hullMat);
+    glacis.rotation.x=-0.48; glacis.position.set(0,0.56,1.2); mesh.add(glacis);
+    // Upper hull deck
+    const uhull = new THREE.Mesh(new THREE.BoxGeometry(1.52,0.2,2.55), hullMat);
+    uhull.position.set(0,0.68,0); mesh.add(uhull);
+    // Turret (angular box shape)
+    const turret = new THREE.Mesh(new THREE.BoxGeometry(1.05,0.44,1.25), hullMat);
+    turret.position.set(0,1.0,-0.1); mesh.add(turret);
+    const tFront = new THREE.Mesh(new THREE.BoxGeometry(1.06,0.44,0.32), steelMat);
+    tFront.rotation.x=0.28; tFront.position.set(0,1.0,0.55); mesh.add(tFront);
+    // Commander hatch
+    const hatch = new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.1,10), darkMat);
+    hatch.position.set(-0.28,1.25,-0.22); mesh.add(hatch);
+    // Barrel — base mantle + long tube + muzzle brake
+    const mantle = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.16,0.42,10), steelMat);
+    mantle.rotation.x=Math.PI/2; mantle.position.set(0,1.0,0.68); mesh.add(mantle);
+    const tube   = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.12,1.7,10), darkMat);
+    tube.rotation.x=Math.PI/2; tube.position.set(0,1.0,1.6); mesh.add(tube);
+    const muzzle = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.16,0.22), darkMat);
+    muzzle.position.set(0,1.0,2.48); mesh.add(muzzle);
+    // ERA blocks on turret sides
+    [-0.54,0.54].forEach(sx=>{
+      [-0.28,0.1].forEach(ez=>{
+        const era=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.22,0.2),steelMat);
+        era.position.set(sx,1.0,ez); mesh.add(era);
+      });
+    });
+    // Antenna
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,1.1,6), darkMat);
+    ant.position.set(0.38,1.85,-0.5); mesh.add(ant);
+    mesh.userData.height = 1.45;
   } else if (roll < 0.67){
+    // ---- JERSEY BARRIER ----
     type = 'barrier';
-    mesh = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.9, 0.9), new THREE.MeshStandardMaterial({ color:0xb5b0a0, roughness:0.95 }));
-    mesh.position.y = 0.45; mesh.castShadow = true;
-    mesh.userData.height = 0.9;
+    mesh = new THREE.Group();
+    const concMat  = new THREE.MeshStandardMaterial({ color:0xc8c4b5, roughness:0.95 });
+    const dirtMat  = new THREE.MeshStandardMaterial({ color:0xa09c8e, roughness:1.0  });
+    const reflMat  = new THREE.MeshStandardMaterial({ color:0xff7700, emissive:0xff4400, emissiveIntensity:0.7, roughness:0.3 });
+    const whiteMat = new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xffffff, emissiveIntensity:0.35 });
+    // Classic stepped NJ barrier profile: wide base → mid → narrow top
+    const base = new THREE.Mesh(new THREE.BoxGeometry(2.3,0.3,1.0), dirtMat);
+    base.position.y=0.15; base.castShadow=true; mesh.add(base);
+    const mid  = new THREE.Mesh(new THREE.BoxGeometry(1.85,0.38,0.94), concMat);
+    mid.position.y=0.49; mesh.add(mid);
+    const top  = new THREE.Mesh(new THREE.BoxGeometry(1.3,0.3,0.88), concMat);
+    top.position.y=0.83; mesh.add(top);
+    // Rounded top ridge
+    const ridge = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.88,8), concMat);
+    ridge.rotation.z=Math.PI/2; ridge.position.set(0,0.97,0); mesh.add(ridge);
+    // Orange reflector chevrons on player-facing side (z+)
+    [-0.55,0.55].forEach(ox=>{
+      const ch = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.14,0.06), reflMat);
+      ch.position.set(ox,0.48,0.5); ch.rotation.z=ox>0?0.42:-0.42; mesh.add(ch);
+    });
+    // White stripe at top
+    const ws = new THREE.Mesh(new THREE.BoxGeometry(1.3,0.09,0.05), whiteMat);
+    ws.position.set(0,0.85,0.46); mesh.add(ws);
+    mesh.userData.height = 1.0;
   } else if (roll < 0.77){
     type = 'overhead';
     mesh = new THREE.Group();
@@ -1171,6 +1259,12 @@ function spawnObstacle(group, x, z, diff=1){
       chain.position.set(hx, 2.25, 0); mesh.add(chain);
     });
 
+    // Red warning lights on corners of hazard bar
+    const warnLightMat = new THREE.MeshStandardMaterial({ color:0xff2200, emissive:0xff2200, emissiveIntensity:2.5 });
+    [-3.0,3.0].forEach(lx=>{
+      const light = new THREE.Mesh(new THREE.SphereGeometry(0.1,8,6), warnLightMat);
+      light.position.set(lx,1.82,0.18); mesh.add(light);
+    });
     mesh.userData.rollUnder = true;
     mesh.userData.hitboxY = [1.4, 2.3];
   } else if (roll < 0.88){
