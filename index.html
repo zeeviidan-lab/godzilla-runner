@@ -38,6 +38,7 @@
   }
   #center-ui button:active { transform: translateY(1px); }
   #hint-overlay { position:fixed; bottom:180px; left:0; right:0; text-align:center; color:rgba(255,255,255,0.75); font-size:13px; pointer-events:none; z-index:20; display:none; transition:opacity 1.2s ease; }
+  @media (pointer:coarse) { #hint-overlay { display:none !important; } }
   #hint-overlay.show { display:block; opacity:1; }
   #hint-overlay.fade { opacity:0; }
   .hidden { display:none !important; }
@@ -1905,7 +1906,16 @@ let musicSeqId = null;
 let musicOscs = [];
 
 function getACtx(){
-  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!actx) {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    // iOS Safari requires a sound to actually play inside the user gesture
+    // to fully unlock the context. A 1-sample silent buffer does it.
+    try {
+      const buf = actx.createBuffer(1, 1, 22050);
+      const src = actx.createBufferSource();
+      src.buffer = buf; src.connect(actx.destination); src.start(0);
+    } catch(e){}
+  }
   if (actx.state==='suspended') actx.resume();
   return actx;
 }
