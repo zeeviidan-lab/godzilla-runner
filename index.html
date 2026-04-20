@@ -1312,6 +1312,7 @@ function spawnCoinRow(group, x, z, y){
 }
 
 // Initial chunks
+let chunkIndex = 0;
 let farZ = 0;
 for (let i=0; i<CHUNK_COUNT; i++){
   const c = buildChunk(-CHUNK_LEN*i);
@@ -1357,7 +1358,7 @@ const ROLL_DUR = 0.65;
 let speed = 8;
 const SPEED_MAX = 50;
 const SPEED_RAMP = 0.18;
-let chunkIndex = 0; // tracks total chunks built, used for difficulty ramp
+
 let score = 0;
 let best = Number(localStorage.getItem('godzilla_best') || 0);
 let running = false;
