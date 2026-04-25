@@ -1233,34 +1233,32 @@ function spawnObstacle(group, x, z, diff=1){
     mesh = new THREE.Group();
     const concMat  = new THREE.MeshStandardMaterial({ color:0xaaa89a, roughness:0.95 });
     const darkConc = new THREE.MeshStandardMaterial({ color:0x7a7870, roughness:0.95 });
-    // Thick pier columns on each side
-    [-3.9, 3.9].forEach(px=>{
-      const pier = new THREE.Mesh(new THREE.BoxGeometry(0.9, 4.0, 0.8), concMat);
-      pier.position.set(px, 2.0, 0); pier.castShadow=true; mesh.add(pier);
-      const foot = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.25, 1.1), darkConc);
+    // Piers — narrower span, taller to lift deck well above Godzilla
+    [-3.1, 3.1].forEach(px=>{
+      const pier = new THREE.Mesh(new THREE.BoxGeometry(0.85, 7.0, 0.75), concMat);
+      pier.position.set(px, 3.5, 0); pier.castShadow=true; mesh.add(pier);
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.25, 1.0), darkConc);
       foot.position.set(px, 0.12, 0); mesh.add(foot);
-      // Corbel bracket at top
-      const corbel = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.3, 0.8), darkConc);
-      corbel.position.set(px, 3.8, 0); mesh.add(corbel);
+      const corbel = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.28, 0.75), darkConc);
+      corbel.position.set(px, 6.85, 0); mesh.add(corbel);
     });
-    // Main deck slab — bottom face sits at y=1.7 so standing Godzilla (1.9) hits it
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(8.8, 0.6, 2.6), concMat);
-    deck.position.set(0, 2.0, 0); mesh.add(deck); // bottom = 2.0-0.3 = 1.70
-    // Soffit box beams (underside detail)
-    [-2.8, 0, 2.8].forEach(bx=>{
-      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.32, 2.6), darkConc);
-      beam.position.set(bx, 1.86, 0); mesh.add(beam);
+    // Deck — bottom at y=3.4, well above rolling Godzilla (~2.1 tall)
+    // Standing Godzilla (~3.5 tall) hits it; rolling (~2.1) clears it
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.6, 2.4), concMat);
+    deck.position.set(0, 3.7, 0); mesh.add(deck); // bottom = 3.7-0.3 = 3.40
+    // Soffit beams
+    [-2.2, 0, 2.2].forEach(bx=>{
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.3, 2.4), darkConc);
+      beam.position.set(bx, 3.55, 0); mesh.add(beam);
     });
-    // Parapet walls on top of deck
-    [-3.9, 3.9].forEach(px=>{
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.55, 2.6), darkConc);
-      wall.position.set(px, 2.57, 0); mesh.add(wall);
+    // Parapets on top
+    [-3.1, 3.1].forEach(px=>{
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.5, 2.4), darkConc);
+      wall.position.set(px, 4.2, 0); mesh.add(wall);
     });
-    // Expansion joint groove
-    const joint = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.04, 0.1), darkConc);
-    joint.position.set(0, 0.02, 0.5); mesh.add(joint);
     mesh.userData.rollUnder = true;
-    mesh.userData.hitboxY = [1.6, 2.7]; // bottom of deck ~1.7
+    mesh.userData.allLanes = true;   // bridge spans all 3 lanes
+    mesh.userData.hitboxY = [3.2, 4.5];
   } else if (roll < 0.94){
     // ---- BRIDGE GAP (jump over) ----
     type = 'bridge_gap';
@@ -1271,26 +1269,26 @@ function spawnObstacle(group, x, z, diff=1){
     // Broken road stumps on both sides of gap
     [-1, 1].forEach(side=>{
       const stump = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.28, 1.8), roadMat);
-      stump.position.set(side*3.2, -0.06, 0); mesh.add(stump);
+      stump.position.set(side*3.0, -0.06, 0); mesh.add(stump);
       // Cracked edge — tilted slightly
       const crack = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.55, 1.8), concMat2);
-      crack.position.set(side*2.0, -0.05, 0); crack.rotation.z = side*0.18; mesh.add(crack);
-      // Bridge girder visible on outer edge
+      crack.position.set(side*1.9, -0.05, 0); crack.rotation.z = side*0.18; mesh.add(crack);
+      // Bridge girder visible on outer edge (moved inward to match narrower road)
       const girder = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.55, 1.8), concMat2);
-      girder.position.set(side*4.1, 0.2, 0); mesh.add(girder);
+      girder.position.set(side*3.5, 0.2, 0); mesh.add(girder);
       // Railing posts on outer edge
       for (let rz=-0.7; rz<=0.7; rz+=0.7){
         const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.75, 0.08), concMat2);
-        post.position.set(side*4.2, 0.65, rz); mesh.add(post);
+        post.position.set(side*3.6, 0.65, rz); mesh.add(post);
       }
       const rail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 1.8), concMat2);
-      rail.position.set(side*4.2, 1.0, 0); mesh.add(rail);
+      rail.position.set(side*3.6, 1.0, 0); mesh.add(rail);
     });
     // Dark abyss floor in the gap
-    const abyss = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.08, 1.8), abyssMat);
+    const abyss = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.08, 1.8), abyssMat);
     abyss.position.set(0, -2.5, 0); mesh.add(abyss);
     // Subtle glow at gap edge (danger hint)
-    const glow = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.06, 1.8), new THREE.MeshStandardMaterial({ color:0x111111, emissive:0xff2200, emissiveIntensity:0.25 }));
+    const glow = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.06, 1.8), new THREE.MeshStandardMaterial({ color:0x111111, emissive:0xff2200, emissiveIntensity:0.25 }));
     glow.position.set(0, -0.02, 0); mesh.add(glow);
     mesh.userData.jumpOver = true;
     mesh.userData.allLanes = true; // gap spans full road width
@@ -1826,8 +1824,9 @@ function tick(now){
             const playerTop=player.y+(player.rolling?0.9:1.9);
             if (playerTop>1.4) hit=true;
           } else if (o.type==='bridge_over'){
-            const playerTop=player.y+(player.rolling?0.9:1.9);
-            if (playerTop>1.65) hit=true;
+            // Visual Godzilla: standing top ~3.8, rolling top ~2.3 (model scale 0.85, rollK squish)
+            const playerTop = player.y + (player.rolling ? 2.3 : 3.8);
+            if (playerTop > 3.2) hit = true;
           } else if (o.type==='bridge_gap'){
             if (player.y<0.4) hit=true;
           } else if (o.type==='train'){
